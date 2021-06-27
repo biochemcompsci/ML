@@ -2,6 +2,7 @@ from Bio.SeqUtils import IUPACData
 from Bio.SeqUtils import seq1
 import pandas as pd
 import numpy as np
+import pickle
 from Antibody import constants
 
 
@@ -58,3 +59,54 @@ def update_seq_and_contact_encoding(neighbor_search, residues, contact_query_cha
                     break
 
     return seq_encoding_update, contact_encoding_update
+
+
+def load_and_merge_serialized_dicts(serialized_dict_files):
+
+    merged_dict = {}
+
+    for curr_dict_file in serialized_dict_files:
+
+        input_file = open(curr_dict_file, 'rb')
+        merged_dict.update(pickle.load(input_file))
+        input_file.close()
+
+    return merged_dict
+
+if __name__ == "__main__":
+
+    data_path = '/home/biochemcompsci/datasets/epitope/sabdab/'
+
+    # ******* sanity check antigen, antibody sequence and epitope, paratope encodings
+    serialized_encoding_file = 'light_chain_paratopes_encoding_merged.pickle'
+    input_file = open(data_path + serialized_encoding_file, 'rb')
+
+    encoding = pickle.load(input_file)
+
+    print()
+
+    # ******* merge serialized dictionaries ******
+    #
+    #
+    # # antigen_seqs_input_file = 'antigen_seqs_encoding.pickle'
+    # # antigen_seqs_input_file_2 = 'antigen_seqs_encoding_2.pickle'
+    # # antigen_epitopes_input_file = 'antigen_epitopes_encoding.pickle'
+    # # antigen_epitopes_input_file_2 = 'antigen_epitopes_encoding_2.pickle'
+    # # heavy_chain_seqs_input_file = 'heavy_chain_seqs_encoding.pickle'
+    # # heavy_chain_seqs_input_file_2 = 'heavy_chain_seqs_encoding_2.pickle'
+    # # heavy_chain_paratopes_input_file = 'heavy_chain_paratopes_encoding.pickle'
+    # # heavy_chain_paratopes_input_file_2 = 'heavy_chain_paratopes_encoding_2.pickle'
+    # # light_chain_seqs_input_file = 'light_chain_seqs_encoding.pickle'
+    # # light_chain_seqs_input_file_2 = 'light_chain_seqs_encoding_2.pickle'
+    # light_chain_paratopes_input_file = 'light_chain_paratopes_encoding.pickle'
+    # light_chain_paratopes_input_file_2 = 'light_chain_paratopes_encoding_2.pickle'
+    #
+    # merged_output_file = 'light_chain_paratopes_encoding_merged.pickle'
+    #
+    # merged_encoding = load_and_merge_serialized_dicts([data_path + light_chain_paratopes_input_file,
+    #                                                    data_path + light_chain_paratopes_input_file_2])
+    #
+    # # serialize merged encoding dictionaries to a file
+    # out_file = open(data_path + merged_output_file, 'wb')
+    # pickle.dump(merged_encoding, out_file)
+    # out_file.close()
