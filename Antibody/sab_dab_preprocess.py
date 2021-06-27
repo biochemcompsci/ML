@@ -1,5 +1,4 @@
 from Bio.PDB import NeighborSearch, PDBParser
-from Bio.SeqUtils import seq1
 import numpy as np
 from Antibody import constants
 from Antibody import utils
@@ -13,6 +12,14 @@ if __name__ == "__main__":
                                                constants.ab_heavy_chain_key,
                                                constants.ab_light_chain_key,
                                                constants.antigen_key])
+
+    # sequence and contact residue encodings stored in dictionary with PDB ID as key
+    antigen_seqs_encoding = {}
+    antigen_epitopes_encoding = {}
+    heavy_chain_seqs_encoding = {}
+    heavy_chain_paratopes_encoding = {}
+    light_chain_seqs_encoding = {}
+    light_chain_paratopes_encoding = {}
 
     curr_pdb = PDBParser()
 
@@ -31,41 +38,73 @@ if __name__ == "__main__":
         utils.remove_non_aa_from_chain(curr_struct_model[curr_Hchain_id])
         utils.remove_non_aa_from_chain(curr_struct_model[curr_Lchain_id])
 
-        # Get antigen and antibody residues from the structure model
-        curr_antigen_residues = curr_struct_model[curr_antigen_chain_id].get_residues()
-        curr_Hchain_residues = curr_struct_model[curr_Hchain_id].get_residues()
-        curr_Lchain_residues = curr_struct_model[curr_Lchain_id].get_residues()
-
         # NeighborSearch module instantiated for epitope-paratope contact residue search
         curr_atom_list = [atom for atom in curr_struct_model.get_atoms()]
         curr_epitope_paratope_contacts = NeighborSearch(curr_atom_list)
 
-        # encode sequence in 1-hot n X len(AA codes) matrix, n = seq length
-        curr_antigen_seq = np.zeros((len(curr_struct_model[curr_antigen_chain_id].child_list), len(constants.aa_lookup_table)), dtype=int)
+        # ******** ANTIGEN ENCODING ********************
+        # encode antigen sequence in 1-hot n X len(AA codes) matrix, n = seq length
+        curr_antigen_seq = np.zeros(
+            (len(curr_struct_model[curr_antigen_chain_id].child_list), len(constants.aa_lookup_table)), dtype=int)
 
         # encode epitope labels in 1-hot n vector, n = seq length
-        curr_antigen_epitope = np.zeros(len(curr_struct_model[curr_antigen_chain_id].child_list), dtype=int)
+        curr_antigen_epitope = np.zeros(
+            len(curr_struct_model[curr_antigen_chain_id].child_list), dtype=int)
 
-        # update antigen sequence 1-hot matrix enconding
-        # update antigen epitope 1-hot vector encoding
-        for res_idx, curr_residue in enumerate(curr_antigen_residues):
+        # Get antigen and antibody residues from the structure model
+        curr_antigen_residues = curr_struct_model[curr_antigen_chain_id].get_residues()
 
-            curr_AA = seq1(curr_residue.get_resname(), undef_code='?')
+        # # update antigen sequence 1-hot matrix enconding
+        # # update antigen epitope 1-hot vector encoding
+        curr_antigen_seq, curr_antigen_epitope = utils.update_seq_and_contact_encoding(curr_epitope_paratope_contacts,
+                                                                                       curr_antigen_residues,
+                                                                                       [curr_Hchain_id, curr_Lchain_id],
+                                                                                       curr_antigen_seq,
+                                                                                       curr_antigen_epitope)
 
-            if curr_AA != '?':
+        antigen_seqs_encoding[curr_pdb_id] = curr_antigen_seq
+        antigen_epitopes_encoding[curr_pdb_id] = curr_antigen_epitope
 
-                curr_antigen_seq[res_idx, np.where(constants.aa_lookup_table == curr_AA)] = 1
+        # ******** HEAVY CHAIN ENCODING ********************
+        # encode heavy chain sequence in 1-hot n X len(AA codes) matrix, n = seq length
+        curr_Hchain_seq = np.zeros(
+            (len(curr_struct_model[curr_Hchain_id].child_list), len(constants.aa_lookup_table)), dtype=int)
 
-                # if current residue has an atom in contact with antibody chain(s), update epitope encoding vector
-                curr_residue_atoms = curr_residue.get_atoms()
-                for curr_atom in curr_residue_atoms:
+        # encode heavy chain paratope labels in 1-hot n vector, n = seq length
+        curr_Hchain_paratope = np.zeros(len(curr_struct_model[curr_Hchain_id].child_list), dtype=int)
 
-                    curr_atom_contacts = curr_epitope_paratope_contacts.search(curr_atom.get_coord(), constants.max_interface_contact_dist, 'C')
-                    print(curr_residue)
-                    if any([contact_chains.get_id() in [curr_Hchain_id, curr_Lchain_id]
-                            for contact_chains in curr_atom_contacts]):
+        # Get heavy chain residues from the structure model
+        curr_Hchain_residues = curr_struct_model[curr_Hchain_id].get_residues()
 
-                        curr_antigen_epitope[res_idx] = 1
-                        print(curr_antigen_epitope)
-                        break
+        # update heavy chain sequence 1-hot matrix enconding
+        # update heavy chain paratope 1-hot vector encoding
+        curr_Hchain_seq, curr_Hchain_paratope = utils.update_seq_and_contact_encoding(curr_epitope_paratope_contacts,
+                                                                                      curr_Hchain_residues,
+                                                                                      [curr_antigen_chain_id],
+                                                                                      curr_Hchain_seq,
+                                                                                      curr_Hchain_paratope)
 
+        heavy_chain_seqs_encoding[curr_pdb_id] = curr_Hchain_seq
+        heavy_chain_paratopes_encoding[curr_pdb_id] = curr_Hchain_paratope
+
+        # ******** LIGHT CHAIN ENCODING ********************
+        # encode light chain sequence in 1-hot n X len(AA codes) matrix, n = seq length
+        curr_Lchain_seq = np.zeros(
+            (len(curr_struct_model[curr_Lchain_id].child_list), len(constants.aa_lookup_table)), dtype=int)
+
+        # encode light chain paratope labels in 1-hot n vector, n = seq length
+        curr_Lchain_paratope = np.zeros(len(curr_struct_model[curr_Lchain_id].child_list), dtype=int)
+
+        # Get light chain residues from the structure model
+        curr_Lchain_residues = curr_struct_model[curr_Lchain_id].get_residues()
+
+        # update light chain sequence 1-hot matrix enconding
+        # update light chain paratope 1-hot vector encoding
+        curr_Lchain_seq, curr_Lchain_paratope = utils.update_seq_and_contact_encoding(curr_epitope_paratope_contacts,
+                                                                                      curr_Lchain_residues,
+                                                                                      [curr_antigen_chain_id],
+                                                                                      curr_Lchain_seq,
+                                                                                      curr_Lchain_paratope)
+
+        light_chain_seqs_encoding[curr_pdb_id] = curr_Lchain_seq
+        light_chain_paratopes_encoding[curr_pdb_id] = curr_Lchain_paratope

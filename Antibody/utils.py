@@ -1,5 +1,7 @@
 from Bio.SeqUtils import IUPACData
+from Bio.SeqUtils import seq1
 import pandas as pd
+import numpy as np
 from Antibody import constants
 
 
@@ -27,3 +29,32 @@ def load_sabdab_metadata(summary_file_path, load_cols):
     pdb_metadata = pdb_metadata.drop_duplicates(subset=constants.pdb_key, keep='first')
 
     return pdb_metadata
+
+
+def update_seq_and_contact_encoding(neighbor_search, residues, contact_query_chains, seq_encoding, contact_encoding):
+
+    seq_encoding_update = seq_encoding
+    contact_encoding_update = contact_encoding
+
+    for res_idx, curr_residue in enumerate(residues):
+
+        curr_AA = seq1(curr_residue.get_resname(), undef_code='?')
+
+        if curr_AA != '?':
+
+            seq_encoding_update[res_idx, np.where(constants.aa_lookup_table == curr_AA)] = 1
+
+            # if current residue has an atom in contact with antibody chain(s), update epitope encoding vector
+            curr_residue_atoms = curr_residue.get_atoms()
+            for curr_atom in curr_residue_atoms:
+
+                curr_atom_contacts = neighbor_search.search(curr_atom.get_coord(),
+                                                            constants.max_interface_contact_dist,
+                                                            'C')
+
+                if any([contact_chains.get_id() in contact_query_chains
+                        for contact_chains in curr_atom_contacts]):
+                    contact_encoding_update[res_idx] = 1
+                    break
+
+    return seq_encoding_update, contact_encoding_update
